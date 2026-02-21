@@ -1,0 +1,15 @@
+{
+  "name": "sajc",
+  "version": "1.0.0",
+  "description": "Semantic Adaptive JSON Compression",
+  "main": "index.js",
+  "directories": {
+    "example": "examples",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Dimitry Katz",
+  "license": "MIT"
+}

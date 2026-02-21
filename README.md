@@ -23,6 +23,48 @@ In a benchmark of **1,000,000 rows** of realistic, nested JSON data (UUIDs, Time
 | **SAJC + Brotli**          | 42,369,26   | **9.12x**         |
 | **SAJC (Sorted + Brotli)** | 42,350,812  | **9.13x**         |
 
+
+=== SAJC Storage Efficiency Benchmark ===
+Target: 100,000 rows
+
+Generating 100,000 rows of data...
+...generated 100,000 rows
+
+Starting benchmark measurements...
+
+Measuring Raw JSON...
+Raw JSON: 147.072ms
+
+Measuring Gzip JSON...
+Gzip JSON: 667.208ms
+
+Measuring Brotli JSON...
+Brotli JSON: 36.235s
+
+Measuring SAJC...
+SAJC: 1.091s
+
+Measuring SAJC + Gzip...
+SAJC + Gzip: 350.668ms
+
+Measuring SAJC + Brotli...
+SAJC + Brotli: 7.871s
+
+Measuring SAJC (Columnar Brotli)...
+SAJC (Columnar Brotli): 8.477s
+
+### Storage Efficiency Benchmark Results
+| Format                  | Total Bytes | Compression Ratio |
+|-------------------------|-------------|-------------------|
+| Raw JSON                | 38,650,684  | 1.00x             |
+| Gzip                    | 8,740,017   | 4.42x             |
+| Brotli                  | 6,305,898   | 6.13x             |
+| SAJC                    | 8,247,162   | 4.69x             |
+| SAJC + Gzip             | 4,900,589   | 7.89x             |
+| SAJC + Brotli           | 4,503,948   | 8.58x             |
+| SAJC (Columnar Brotli)  | 4,500,412   | 8.59x             |
+
+
 > **Why the difference?** SAJC transforms your "Row-based" JSON into "Columnar" binary blocks. When similar data is grouped together, general-purpose compressors like Brotli can find patterns that are impossible to see in raw JSON.
 
 ---

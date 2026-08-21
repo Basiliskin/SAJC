@@ -2,17 +2,17 @@
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Stability: Experimental](https://img.shields.io/badge/stability-experimental-orange.svg)](https://github.com/your-repo/sajc)
+[![Stability: Experimental](https://img.shields.io/badge/stability-experimental-orange.svg)](https://github.com/Basiliskin/SAJC)
 
 ### **Stop sending air. Send data.**
 
-SAJC is a high-performance, **semantic columnar compression** engine for Node.js and TypeScript. While standard algorithms like Gzip and Brotli are "data-blind," SAJC understands the structure and types of your JSON, achieving compression ratios up to **10x–15x** by applying specialized binary encoding to every field.
+SAJC is a high-performance, **semantic columnar compression** engine for Node.js and TypeScript. While standard algorithms like Gzip and Brotli are "data-blind," SAJC understands the structure and types of your JSON, achieving compression ratios up to **~9x** in the project's benchmarks by applying specialized binary encoding to every field.
 
 ---
 
 ## 📊 The Performance Gap
 
-In a benchmark of **1,000,000 rows** of realistic, nested JSON data (UUIDs, Timestamps, Enums, and Arrays), SAJC consistently outperforms industry standards:
+In the project's benchmark of **1,000,000 rows** of realistic, nested JSON data (UUIDs, Timestamps, Enums, and Arrays), SAJC combined with Brotli produced the smallest output:
 
 | Format                     | Total Bytes | Compression Ratio |
 | :------------------------- | :---------- | :---------------- |
@@ -20,40 +20,14 @@ In a benchmark of **1,000,000 rows** of realistic, nested JSON data (UUIDs, Time
 | **Standard Gzip**          | 87,389,810  | 4.42x             |
 | **Standard Brotli**        | 62,852,876  | 6.15x             |
 | **SAJC (Raw Binary)**      | 76,873,036  | 5.03x             |
-| **SAJC + Brotli**          | 42,369,26   | **9.12x**         |
+| **SAJC + Brotli**          | 42,369,260  | **9.12x**         |
 | **SAJC (Sorted + Brotli)** | 42,350,812  | **9.13x**         |
 
 
-=== SAJC Storage Efficiency Benchmark ===
-Target: 100,000 rows
+### Storage Efficiency Benchmark (100,000 rows)
 
-Generating 100,000 rows of data...
-...generated 100,000 rows
+Reproduced by running `examples/benchmark.ts`:
 
-Starting benchmark measurements...
-
-Measuring Raw JSON...
-Raw JSON: 147.072ms
-
-Measuring Gzip JSON...
-Gzip JSON: 667.208ms
-
-Measuring Brotli JSON...
-Brotli JSON: 36.235s
-
-Measuring SAJC...
-SAJC: 1.091s
-
-Measuring SAJC + Gzip...
-SAJC + Gzip: 350.668ms
-
-Measuring SAJC + Brotli...
-SAJC + Brotli: 7.871s
-
-Measuring SAJC (Columnar Brotli)...
-SAJC (Columnar Brotli): 8.477s
-
-### Storage Efficiency Benchmark Results
 | Format                  | Total Bytes | Compression Ratio |
 |-------------------------|-------------|-------------------|
 | Raw JSON                | 38,650,684  | 1.00x             |
@@ -95,23 +69,56 @@ SAJC doesn't just "zip" your file. It profiles your data and applies a strategy:
 ## 🚀 Quick Start
 
 ```typescript
-import { SemanticCompressor } from "sajc";
+import { SemanticCompressor } from "./core/SemanticCompressor";
+import { CodecRegistry } from "./codecs/CodecRegistry";
+import { FieldProfiler } from "./schema/FieldProfile";
+import { ColumnBuilder, HeaderEncoder } from "./schema/FieldType";
+import { ObjectFlattener } from "./codecs/ObjectFlattener";
+import { UUIDCodec } from "./codecs/UUIDCodec";
+import { TimestampCodec } from "./codecs/TimestampCodec";
+import { EnumCodec } from "./codecs/EnumCodec";
+import { AdaptiveStringCodec } from "./codecs/AdaptiveStringCodec";
+import { NumberCodec } from "./codecs/NumberCodec";
+import { BooleanCodec } from "./codecs/BooleanCodec";
+import { ArrayObjectCodec } from "./codecs/ArrayObjectCodec";
+import { ArrayPrimitiveCodec } from "./codecs/ArrayPrimitiveCodec";
 
-// 1. Initialize with standard codecs
-const compressor = createCompressor();
+// 1. Build the codec registry for the types you want to support
+const profiler = new FieldProfiler();
+const registry = new CodecRegistry();
+const columnBuilder = new ColumnBuilder();
 
-// 2. Your massive dataset
+registry.register(new UUIDCodec(), "UUID");
+registry.register(new TimestampCodec(), "TIMESTAMP");
+registry.register(new EnumCodec(), "ENUM");
+registry.register(new BooleanCodec(), "BOOLEAN");
+registry.register(new NumberCodec(), "NUMBER");
+registry.register(new AdaptiveStringCodec(), "STRING");
+registry.register(new ArrayObjectCodec(profiler, registry, columnBuilder), "ARRAY");
+registry.register(new ArrayPrimitiveCodec(profiler, registry), "ARRAY_PRIMITIVE");
+
+const compressor = new SemanticCompressor(
+  registry,
+  profiler,
+  columnBuilder,
+  new HeaderEncoder(),
+  new ObjectFlattener()
+);
+
+// 2. Your dataset
 const data = [
   { id: "550e8400...", status: "active", price: 19.99, tags: ["new"] },
-  // ... 1,000,000 more rows
+  // ... many more rows
 ];
 
 // 3. Compress to a high-density Buffer
 const compressed = compressor.compress(data);
 
-// 4. Decompress back to original JSON
+// 4. Decompress back to the original JSON
 const original = compressor.decompress(compressed);
 ```
+
+> **Note:** the full runnable example lives in [`examples/usage_example.ts`](./examples/usage_example.ts). The package is not yet published to npm, so imports use repo-relative paths.
 
 ---
 
@@ -127,11 +134,11 @@ SAJC is built with **SOLID** principles at its core:
 
 ## 🧪 Testing & Reliability
 
-SAJC is built for production-grade reliability:
+SAJC is built with reliability in mind:
 
-- **Strict Round-trip Validation:** Every compression cycle is verified to ensure the decompressed output is a 1:1 match with the input.
-- **Type Safety:** Written in 100% Strict TypeScript.
-- **Zero Dependencies:** Core logic depends only on the Node.js Buffer API.
+- **Strict Round-trip Validation:** Every compression cycle is verified internally to ensure the decompressed output matches the input (`core/SemanticCompressor.ts`).
+- **Type Safety:** Written in TypeScript.
+- **Zero Runtime Dependencies:** Core logic depends only on Node.js built-ins (`Buffer`, `zlib`). The benchmark example additionally uses `@faker-js/faker` for data generation.
 
 ---
 
